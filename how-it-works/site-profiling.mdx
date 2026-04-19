@@ -1,0 +1,135 @@
+---
+title: "Site profiling: inferring audience and product surface"
+description: "Understand how inferSiteProfile() scores page signals to classify product surface and audience, and how confidence levels affect the generated brand context."
+---
+
+Before generating markdown, the extension tries to answer two questions about the page: what kind of product surface is this (documentation, dashboard, marketing site, etc.), and who is the primary audience? `inferSiteProfile()` in `lib/normalize.mjs` answers both by scoring keyword and structural signals extracted from the page, then returning a profile object that feeds directly into the **Brand** section of the generated output.
+
+## How the text corpus is built
+
+All scoring works against a single lowercased, whitespace-normalized string called the corpus. `toCorpus()` concatenates these sources in order:
+
+1. Page URL
+2. Page title
+3. `<meta name="description">` content
+4. `<meta name="keywords">` content
+5. `og:type` and `og:site_name` Open Graph values
+6. `application-name` meta tag
+7. URL pathname
+8. Up to 10 `h1`/`h2` heading texts
+9. Up to 24 navigation link and button labels
+10. Up to 24 CTA button and submit input labels
+11. The first 2,400 characters of the body text sample
+
+Keeping the corpus short (especially truncating body text to 2,400 characters) focuses the scoring on the most intentional, editorially controlled signals rather than incidental body copy.
+
+## Surface scoring
+
+Six product surface categories compete for the highest score. Each category accumulates points from two types of signals:
+
+**Keyword hits** — each keyword found in the corpus adds a per-category weight to the score.
+
+**Numeric cues** — structural element counts (code blocks, forms, tables, etc.) from `collectSiteSignals()` add weight when they exceed a threshold.
+
+<CardGroup cols={2}>
+  <Card title="Documentation" icon="book">
+    Keywords: `docs`, `documentation`, `api`, `reference`, `sdk`, `cli`, `guide`, `tutorial`, `endpoint`, `quickstart` (weight 0.8 each).
+
+    Structural: ≥ 4 code blocks (weight 0.35), URL path containing `/docs`, `/documentation`, or `/api` (flat +2).
+  </Card>
+  <Card title="Dashboard" icon="gauge">
+    Keywords: `dashboard`, `workspace`, `settings`, `analytics`, `reports`, `admin`, `billing`, `projects`, `users`, `team` (weight 0.7 each).
+
+    Structural: ≥ 3 forms (0.4), ≥ 8 inputs (0.2), ≥ 1 table (0.45), ≥ 2 auth markers (0.35).
+  </Card>
+  <Card title="Marketing" icon="megaphone">
+    Keywords: `features`, `pricing`, `contact sales`, `book demo`, `testimonials`, `enterprise`, `why`, `benefits`, `get started`, `start free` (weight 0.6 each).
+
+    Structural: ≥ 1 pricing section (weight 1.4).
+  </Card>
+  <Card title="Content" icon="newspaper">
+    Keywords: `blog`, `article`, `news`, `read more`, `newsletter`, `editorial`, `author`, `published` (weight 0.7 each).
+
+    Structural: ≥ 2 article elements (0.5).
+  </Card>
+  <Card title="E-commerce" icon="shopping-cart">
+    Keywords: `shop`, `product`, `checkout`, `cart`, `sku`, `inventory`, `buy now`, `shipping`, `order`, `wishlist` (weight 0.8 each).
+
+    Structural: ≥ 1 product marker (1.1), ≥ 1 checkout marker (1.2).
+  </Card>
+  <Card title="Web app" icon="browser">
+    Keywords: `account`, `profile`, `workspace`, `app`, `platform`, `notifications`, `integrations` (weight 0.35 each).
+
+    No structural cues. Acts as a fallback for authenticated tools that don't fit other categories.
+  </Card>
+</CardGroup>
+
+The surface with the highest total score wins. `toProductSurfaceLabel()` maps the winning key to a human-readable label like `"documentation site"` or `"e-commerce storefront"`.
+
+## Audience scoring
+
+Six audience categories compete independently from surfaces. Keywords and structural cues are scored the same way:
+
+| Audience | Sample keywords | Notable structural cue |
+|---|---|---|
+| `developer` | `developer`, `api`, `sdk`, `cli`, `github`, `terminal` (0.75) | ≥ 3 code blocks (0.45) |
+| `operator` | `dashboard`, `manage`, `settings`, `admin`, `monitor` (0.55) | ≥ 2 forms (0.35), ≥ 1 table (0.35) |
+| `business` | `enterprise`, `pricing`, `sales`, `compliance`, `roi` (0.55) | — |
+| `consumer` | `shop`, `cart`, `checkout`, `buy`, `discount` (0.65) | ≥ 1 product marker (0.6) |
+| `reader` | `blog`, `article`, `newsletter`, `news`, `insights` (0.55) | ≥ 2 articles (0.4) |
+| `general` | `home`, `welcome`, `about`, `contact` (0.2) | — |
+
+## Cross-signal bonuses
+
+After independent surface and audience scoring, winning surface categories apply flat bonuses to correlated audiences:
+
+```javascript
+if (bestSurface.key === "documentation") audienceScores.developer += 1.8;
+if (bestSurface.key === "dashboard")     audienceScores.operator  += 1.3;
+if (bestSurface.key === "ecommerce")     audienceScores.consumer  += 1.2;
+if (bestSurface.key === "marketing")     audienceScores.business  += 0.8;
+if (bestSurface.key === "content")       audienceScores.reader    += 0.8;
+```
+
+These bonuses handle cases where keyword evidence is sparse but the surface classification is already confident — for example, a documentation site with minimal body text will still push the audience toward `developer`.
+
+## Confidence levels
+
+`confidenceFromScores()` evaluates the top-scoring category's score and the gap between first and second place:
+
+| Level | Criteria |
+|---|---|
+| `high` | Score ≥ 5 **and** gap ≥ 1.4 |
+| `medium` | Score ≥ 2.4 **and** gap ≥ 0.5 |
+| `low` | Anything else |
+
+The overall profile confidence is the lower of the two individual confidence ratings (surface and audience). If either is `low`, the combined result is `low`.
+
+<Warning>
+  A `low` confidence profile triggers the diagnostic: **"Audience and product surface inference confidence is low; verify generated brand context."** This appears in the generated DESIGN.md. Review the **Brand** section manually before using the output.
+</Warning>
+
+## The profile object
+
+`inferSiteProfile()` returns a structured object:
+
+```javascript
+{
+  audience: "developers and technical teams",
+  productSurface: "documentation site",
+  confidence: "high",
+  scores: {
+    surface: { documentation: 8.2, dashboard: 1.4, marketing: 0.6, ... },
+    audience: { developer: 9.0, operator: 1.1, business: 0.55, ... }
+  },
+  evidence: [
+    "documentation: 6 keyword hits",
+    "code blocks: 12",
+    "documentation path: /docs",
+    "developer audience: 5 keyword hits",
+    "developer code blocks: 12"
+  ]
+}
+```
+
+The `audience` and `productSurface` fields are written directly into the **Brand** section of both DESIGN.md and SKILL.md. The `evidence` array (up to 8 deduplicated items) is available for debugging but does not appear in the generated output.

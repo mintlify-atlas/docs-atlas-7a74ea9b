@@ -1,0 +1,79 @@
+{
+  "projectType": "general",
+  "projectName": "DESIGN.md Style Extractor",
+  "projectDescription": "A Chrome extension that extracts computed styles from any website and generates DESIGN.md or SKILL.md files for use with AI coding tools like Claude Code, Codex, and Cursor.",
+  "theme": "willow",
+  "primaryColor": "#e47443",
+  "lightColor": "#e4e4e4",
+  "darkColor": "#da4d41",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "How It Works",
+            "pages": [
+              "how-it-works/style-extraction",
+              "how-it-works/token-normalization",
+              "how-it-works/site-profiling",
+              "how-it-works/output-generation"
+            ]
+          },
+          {
+            "group": "Output Formats",
+            "pages": [
+              "outputs/design-md",
+              "outputs/skill-md",
+              "outputs/quick-install"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/using-with-claude",
+              "guides/using-with-cursor",
+              "guides/using-with-codex",
+              "guides/interpreting-results"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/validation",
+              "reference/troubleshooting",
+              "reference/contributing"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Auto-extracts computed styles (typography, colors, spacing, radius, shadows, motion) from any visible website",
+    "Generates DESIGN.md files following the TypeUI DESIGN.md open format",
+    "Generates SKILL.md agent-ready files with frontmatter for AI tool integration",
+    "One-click Quick Install to Claude Code, Codex, and Cursor project directories",
+    "Built-in validation against required sections, WCAG 2.2 AA, and interaction states",
+    "Site profiling to infer brand context, audience, and product surface from page signals",
+    "Token normalization pipeline that deduplicates raw values into semantic token sets",
+    "Download and clipboard copy support for generated markdown"
+  ],
+  "publicApiSurface": [
+    "normalizeExtractedStyles(payload) — normalizes raw computed styles into semantic token rows",
+    "generateDesignMarkdown(context) — generates DESIGN.md markdown from normalized styles",
+    "generateSkillMarkdown(context) — generates SKILL.md markdown with frontmatter from normalized styles",
+    "validateMarkdownOutput(mode, markdown) — validates generated markdown against required structure",
+    "Chrome message: RUN_EXTRACTION — triggers style extraction and markdown generation for a tab",
+    "Chrome message: DOWNLOAD_MARKDOWN — triggers browser download of generated markdown file",
+    "Content script: extractStylesFromPage() — collects computed styles from visible DOM elements"
+  ]
+}

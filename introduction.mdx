@@ -1,0 +1,62 @@
+---
+title: "DESIGN.md Style Extractor: Chrome extension overview"
+description: "Extract computed styles from any website and generate DESIGN.md or SKILL.md files for AI coding tools like Claude Code, Codex, and Cursor."
+---
+
+DESIGN.md Style Extractor is a Chrome extension that reads the computed styles of the active browser tab and converts them into structured markdown files that AI coding tools can use as a design-system blueprint. Point it at any website, click refresh, and within seconds you have a portable design document that captures how the site actually looks — not how its source files are organized.
+
+## What it extracts
+
+The extension samples up to 280 visible elements per page and reads six categories of computed style from each one:
+
+| Category | What is captured |
+| --- | --- |
+| Typography | Font family, size, line height, weight, letter spacing |
+| Colors | Text color, background color, border color, outline color |
+| Spacing | All eight margin and padding values |
+| Radius | Border radius |
+| Shadows | Box shadow |
+| Motion | Transition and animation duration and timing functions |
+
+Raw values are deduplicated and grouped into semantic token sets during a normalization step, so the output reads like a design token sheet rather than a raw style dump.
+
+## Output modes
+
+The extension produces two kinds of files depending on which mode button you select in the popup.
+
+**DESIGN.md** generates a design-system documentation file. It is structured around the open [TypeUI DESIGN.md](https://www.typeui.sh/design-md) format and covers mission, brand context, style foundations, accessibility requirements, and authoring rules. Use this mode when you want a human-readable reference or when you are sharing the design system with collaborators.
+
+**SKILL.md** generates an agent-ready skill file that AI coding tools consume directly. It uses the same underlying data but is formatted and sectioned for tool ingestion. Use this mode when you want to install the extracted design system into Claude Code, Codex, Cursor, or another AI environment so the tool applies the correct visual language when generating UI code.
+
+## The TypeUI DESIGN.md format
+
+The output follows the open-source [TypeUI DESIGN.md](https://www.typeui.sh/design-md) specification. This format defines a standard set of sections — mission, brand, style foundations, accessibility, writing tone, rules, workflow, and quality gates — that AI tools can parse predictably. Because the format is open, the files are portable across any tool that supports markdown skill files.
+
+## Available actions
+
+| Action | Description |
+| --- | --- |
+| Auto-extract | Reads styles from the active tab (typography, colors, spacing, radius, shadows, motion). |
+| Generate **DESIGN.md** | Produces design-system documentation markdown from extracted signals. |
+| Generate **SKILL.md** | Produces agent-ready skill markdown from extracted signals. |
+| Refresh | Re-runs extraction for the current page state. |
+| Download | Saves generated output as `DESIGN.md` or `SKILL.md`. |
+| Explain (`?`) | Shows how the file was generated, with TypeUI reference. |
+
+## Permissions
+
+The extension requests four permissions, all required for its core functionality:
+
+- `activeTab` — reads the URL and injects the content script into the current tab
+- `scripting` — executes the style-extraction content script on the page
+- `storage` — persists the selected output mode between popup sessions
+- `downloads` — saves the generated file to disk when you click **Download**
+
+<CardGroup cols={2}>
+  <Card title="Install the extension" href="/installation">
+    Load the extension from source in Chrome Developer mode in a few steps.
+  </Card>
+  <Card title="Get your first output" href="/quickstart">
+    Navigate to a site, open the popup, and download a design file in under a minute.
+  </Card>
+</CardGroup>

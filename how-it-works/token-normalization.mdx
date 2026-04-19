@@ -1,0 +1,119 @@
+---
+title: "Token normalization: from raw styles to named design tokens"
+description: "See how normalizeExtractedStyles() converts raw computed CSS values into named design tokens for typography, color, spacing, radius, motion, and shadows."
+---
+
+The raw extraction payload contains one CSS value per element per property — hundreds of individual readings that are mostly redundant. `normalizeExtractedStyles()` in `lib/normalize.mjs` condenses that data into a compact set of named design tokens by counting frequencies, sorting values numerically, and mapping them to semantic names from a fixed set of token name arrays.
+
+## Typography normalization
+
+Each typography row from the payload is processed with two steps:
+
+**Font sizes** — `parsePx()` extracts a numeric pixel value from each `fontSize` string. Values that are `"normal"`, `"auto"`, or non-numeric are discarded. Valid values are accumulated into a frequency map and then sorted numerically. The sorted list is mapped to `SIZE_NAMES`:
+
+```javascript
+const SIZE_NAMES = ["xs", "sm", "md", "lg", "xl", "2xl", "3xl", "4xl"];
+```
+
+This produces tokens like `font.size.xs=12px`, `font.size.md=16px`, `font.size.2xl=32px`.
+
+**Font families** — `normalizeFontFamilyStack()` trims whitespace, strips surrounding quotes from each family name in the comma-separated stack, and re-joins the cleaned names. The resulting normalized stack string is counted by frequency. The most frequently occurring font family stack becomes the `mainFontStyle`, with `inferMainFontStyle()` further recording the dominant `fontWeight`, `fontSize`, and `lineHeight` for that family. Confidence is rated `high`, `medium`, or `low` based on what fraction of sampled elements share the top family and how many elements match its dominant style.
+
+## Color normalization
+
+Every color value from `textColor`, `backgroundColor`, `borderColor`, and `outlineColor` passes through two helpers:
+
+- **`toCanonicalColor()`** — converts `rgb(r, g, b)` and `rgba(r, g, b, a)` strings to six-digit lowercase hex (e.g. `#1f1f1f`). Values already starting with `#` are passed through unchanged.
+- **`isTransparent()`** — discards any value containing the string `"transparent"`.
+
+After conversion and filtering, the surviving colors are counted by frequency in four separate maps: text colors, background colors, border colors, and focus/outline colors.
+
+`buildColorTokens()` then selects the top entries from each map and assigns semantic names:
+
+```javascript
+const TEXT_NAMES    = ["primary", "secondary", "tertiary", "inverse"];
+const SURFACE_NAMES = ["base", "muted", "raised", "strong"];
+const BORDER_NAMES  = ["default", "muted", "strong"];
+```
+
+The top 4 text colors become `color.text.primary` through `color.text.inverse`. The top 4 background colors become `color.surface.base` through `color.surface.strong`. The top 3 border colors become `color.border.default` through `color.border.strong`. The single most common outline color becomes `color.focus.ring`.
+
+A final deduplication pass removes any token whose hex value already appears at a higher-frequency position, so the same color cannot occupy two slots.
+
+## Spacing normalization
+
+All eight spacing properties from each element (the four margins and four paddings) are parsed with `parsePx()`. Only values greater than zero are kept. The surviving pixel values are sorted numerically and emitted as a numbered sequence: `space.1`, `space.2`, `space.3`, and so on. No named scale is applied to spacing — the numeric sequence preserves the actual frequency order.
+
+## Radius tokens
+
+Border radius values from each sampled element are parsed with `parsePx()`, and values of zero are excluded. The sorted pixel values are mapped to `RADIUS_NAMES`:
+
+```javascript
+const RADIUS_NAMES = ["xs", "sm", "md", "lg", "xl", "2xl"];
+```
+
+This produces tokens like `radius.xs=2px`, `radius.md=8px`, `radius.2xl=24px`.
+
+## Size scale tokens
+
+The typography size scale uses `SIZE_NAMES`, which has eight steps:
+
+```javascript
+const SIZE_NAMES = ["xs", "sm", "md", "lg", "xl", "2xl", "3xl", "4xl"];
+```
+
+If the page uses more than eight distinct font sizes, only the smallest eight are named; larger sizes beyond the array length receive a fallback label like `font.size.step9`.
+
+## Motion tokens
+
+**Durations** — `parseDuration()` handles both `ms` and `s` suffixes. For each row, `transitionDuration` is preferred; if absent or zero, `animationDuration` is used. The result is converted to milliseconds and rounded to one decimal place. Duration values of zero are discarded. Sorted duration values are mapped to `MOTION_NAMES`:
+
+```javascript
+const MOTION_NAMES = ["instant", "fast", "normal", "slow", "slower"];
+```
+
+This produces tokens like `motion.duration.fast=100ms`, `motion.duration.normal=200ms`.
+
+**Easing functions** — `transitionTimingFunction` is preferred, falling back to `animationTimingFunction`. The generic value `"ease"` is excluded because it is the browser default and carries no intentional design signal. Unique easing strings are counted by frequency. The top four become `motion.easing.1` through `motion.easing.4`.
+
+## Shadow tokens
+
+Box shadow values that are not `"none"` are counted by frequency. The top four are emitted as `shadow.1` through `shadow.4`, with the raw shadow string preserved as the value.
+
+## Example token output
+
+```
+color.text.primary=#1f1f1f
+color.text.secondary=#6b7280
+color.surface.base=#ffffff
+color.surface.muted=#f9fafb
+color.border.default=#e5e7eb
+color.focus.ring=#3b82f6
+font.size.xs=12px
+font.size.sm=14px
+font.size.md=16px
+font.size.lg=18px
+font.size.xl=20px
+radius.xs=2px
+radius.sm=4px
+radius.md=8px
+motion.duration.fast=100ms
+motion.duration.normal=200ms
+space.1=4px
+space.2=8px
+space.3=16px
+```
+
+## Diagnostics
+
+After building all token groups, `normalizeExtractedStyles()` evaluates five conditions and appends a warning to the `diagnostics` array for each one that applies:
+
+| Condition | Diagnostic message |
+|---|---|
+| Fewer than 30 sampled elements | `"Low sample size: fewer than 30 visible elements were extracted."` |
+| Fewer than 4 color tokens | `"Limited color diversity detected; color token inference confidence is low."` |
+| Fewer than 3 typography size steps | `"Limited typography variety detected; size scale may need manual refinement."` |
+| No font family detected | `"Main font family could not be confidently extracted from computed styles."` |
+| Site profile confidence is `"low"` | `"Audience and product surface inference confidence is low; verify generated brand context."` |
+
+Diagnostics are included in the generated DESIGN.md as an extraction note at the bottom of the **Component Rule Expectations** section.

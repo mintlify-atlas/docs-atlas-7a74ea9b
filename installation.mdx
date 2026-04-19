@@ -1,0 +1,57 @@
+---
+title: "Install DESIGN.md Style Extractor from source in Chrome"
+description: "Load the DESIGN.md Style Extractor Chrome extension from source using Developer mode — no Web Store required. Takes about two minutes."
+---
+
+The extension is distributed as open-source source code rather than through the Chrome Web Store, so installation uses Chrome's built-in Developer mode loader. You point Chrome at the project folder and it loads the extension directly. No build step is required.
+
+## Prerequisites
+
+- Google Chrome installed
+- The project folder cloned or downloaded from [GitHub](https://github.com/bergside/design-md-chrome)
+
+## Install steps
+
+<Steps>
+  <Step title="Open the extensions page">
+    In Chrome, navigate to `chrome://extensions` in the address bar.
+  </Step>
+  <Step title="Enable Developer mode">
+    Toggle the **Developer mode** switch in the top-right corner of the extensions page. A toolbar with additional options will appear.
+  </Step>
+  <Step title="Load the unpacked extension">
+    Click **Load unpacked**. A file picker dialog opens.
+  </Step>
+  <Step title="Select the project folder">
+    Navigate to the root of the cloned repository — the folder that contains `manifest.json` — and confirm the selection. Chrome loads the extension immediately.
+  </Step>
+</Steps>
+
+<Tip>
+After loading, the DESIGN.md Style Extractor icon appears in the Chrome toolbar. If you do not see it, click the puzzle-piece extensions menu and pin the extension so it stays visible. Clicking the icon opens the popup with the mode switcher and the markdown preview area.
+</Tip>
+
+## What to expect after install
+
+Once loaded, the popup shows two mode buttons — **DESIGN.md** and **SKILL.md** — along with a markdown preview textarea and action buttons for **Refresh**, **Download**, **Copy**, and **Explain**. The extension runs extraction automatically when you open the popup on a supported page.
+
+A **Quick install** section at the bottom of the popup lets you write the generated `SKILL.md` directly into your project folder for Claude Code, Codex, or Cursor with a single click.
+
+## Manifest version and permissions
+
+The extension uses Manifest V3 (`manifest_version: 3`), the current Chrome extension platform. It requests four permissions:
+
+```json
+"permissions": [
+  "activeTab",
+  "scripting",
+  "storage",
+  "downloads"
+]
+```
+
+No remote code is loaded. All processing happens locally in the content script and service worker.
+
+<Note>
+The extension is open-source under the MIT License. Source code, issue tracker, and contribution guidelines are on GitHub at [https://github.com/bergside/design-md-chrome](https://github.com/bergside/design-md-chrome).
+</Note>

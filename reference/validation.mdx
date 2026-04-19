@@ -1,0 +1,147 @@
+---
+title: "Validation reference for DESIGN.md Style Extractor"
+description: "Complete reference for all validation checks run after generation, including required headings, state checks, skill-mode rules, and result shape."
+---
+
+Every time you run an extraction, the generated markdown is passed through `validateMarkdownOutput()` in `lib/validate.mjs` before the result reaches the popup. Validation gives you a structured list of what passed, what failed, and whether those failures are blocking. The results appear in the issues list directly below the mode switcher in the extension popup.
+
+## How results are structured
+
+`validateMarkdownOutput(mode, markdown)` returns a plain object with four fields:
+
+```typescript
+{
+  isValid: boolean;          // false if any errors exist
+  errors: string[];          // checks that failed — block isValid
+  warnings: string[];        // informational — do not block isValid
+  checks: Array<{
+    label: string;
+    ok: boolean;
+  }>;
+}
+```
+
+`isValid` is `true` only when `errors` is empty. Warnings are surfaced in the issues list alongside errors but do not change the valid/invalid outcome. The `checks` array records every check that was evaluated, including passing ones, so the Help panel (`?` button) can show a pass rate such as "12/14 checks passed".
+
+## Errors vs. warnings
+
+<CardGroup cols={2}>
+  <Card title="Errors" icon="circle-x">
+    Set `isValid` to `false`. Represent structural requirements the generated file cannot omit — required section headings, frontmatter fields, managed block markers, and the accessibility target string.
+  </Card>
+  <Card title="Warnings" icon="triangle-alert">
+    Do not affect `isValid`. Represent best-practice gaps such as missing state coverage or absent normative language. The generated file is still usable but may need manual refinement.
+  </Card>
+</CardGroup>
+
+## Required headings
+
+The 11 headings below must appear verbatim in the generated markdown. Each is checked as an **error** — if any heading is absent, `isValid` becomes `false`.
+
+| Heading | Purpose |
+|---|---|
+| `## Mission` | Design-system objective for the extracted site |
+| `## Brand` | Product/brand context, URL, audience, and product surface |
+| `## Style Foundations` | Inferred visual tokens and foundations |
+| `## Accessibility` | WCAG 2.2 AA requirements and interaction constraints |
+| `## Writing Tone` | Guidance tone for implementation-ready output |
+| `## Rules: Do` | Required implementation practices |
+| `## Rules: Don't` | Anti-patterns and prohibited behavior |
+| `## Guideline Authoring Workflow` | Ordered guideline authoring steps |
+| `## Required Output Structure` | Enforces consistent output sections |
+| `## Component Rule Expectations` | Required interaction and state details per component |
+| `## Quality Gates` | Testable quality and consistency checks |
+
+If a heading is missing after generation, click **Refresh** to re-run extraction. If headings continue to be absent, the generation pipeline may have encountered a rendering issue — check the browser console for errors.
+
+## Required UI states
+
+The 7 states below are checked as **warnings**. The validator scans the full markdown (case-insensitive) for each state string. If a state is not mentioned anywhere in the output, a warning is added to the issues list.
+
+```
+default · hover · focus-visible · active · disabled · loading · error
+```
+
+These warnings indicate that the generated output may have incomplete interaction guidance for components. If you see them, review the `## Component Rule Expectations` section and add explicit state descriptions for the states that are missing.
+
+## Skill mode checks
+
+The following checks run **only when mode is `skill`**. All four are evaluated as **errors**.
+
+<AccordionGroup>
+  <Accordion title="Frontmatter block exists">
+    The file must begin with `---`. The validator checks `markdown.startsWith("---")`. If this fails, the SKILL.md was generated without a valid YAML frontmatter opening — re-run extraction with SKILL mode selected.
+  </Accordion>
+  <Accordion title='Frontmatter includes design-system name'>
+    The frontmatter must contain the string `name: design-system-`. This ensures the skill is namespaced correctly for agent tools. If missing, the generated frontmatter header did not produce a valid system name — check that extraction ran successfully on a page with identifiable brand signals.
+  </Accordion>
+  <Accordion title="Frontmatter includes description">
+    The frontmatter must contain `description:`. If this check fails, the SKILL.md header is incomplete. Re-run extraction; if the page has very few signals, the generator may fall back to a minimal output.
+  </Accordion>
+  <Accordion title="Managed block markers exist">
+    Both `<!-- TYPEUI_SH_MANAGED_START -->` and `<!-- TYPEUI_SH_MANAGED_END -->` must be present. These markers allow TypeUI tooling to update the managed section of a SKILL.md without overwriting custom additions. If either marker is absent, the file should not be used with TypeUI's managed update flow until the markers are restored.
+  </Accordion>
+</AccordionGroup>
+
+## Additional content checks
+
+Two additional checks apply in both DESIGN.md and SKILL.md modes.
+
+### Accessibility target (error)
+
+The exact string `WCAG 2.2 AA` must appear in the output. If it is missing, an error is added:
+
+```
+Accessibility target 'WCAG 2.2 AA' is missing.
+```
+
+The `## Accessibility` section of the generated file is expected to reference this standard explicitly. If this error appears, re-run extraction — or manually verify that the Accessibility section was not truncated during generation.
+
+### Normative language (warnings)
+
+The words `must` and `should` are each checked independently. If either is absent, a warning is added:
+
+```
+No 'must' wording detected for non-negotiable rules.
+No 'should' wording detected for recommendation rules.
+```
+
+These words are standard signals that the generated ruleset distinguishes mandatory requirements from recommendations. If both are absent, the rules sections may be too sparse and should be reviewed manually.
+
+## Full check reference
+
+The table below lists every check by name, its type, and the recommended action if it fails.
+
+| Check | Type | Action if it fails |
+|---|---|---|
+| Frontmatter block exists | Error (skill only) | Re-run extraction in skill mode |
+| Frontmatter includes design-system name | Error (skill only) | Re-run on a page with identifiable brand signals |
+| Frontmatter includes description | Error (skill only) | Re-run extraction; check browser console |
+| Managed block markers exist | Error (skill only) | Re-run extraction; do not use file with managed update tools |
+| Required section present: `## Mission` | Error | Click Refresh to re-run extraction |
+| Required section present: `## Brand` | Error | Click Refresh to re-run extraction |
+| Required section present: `## Style Foundations` | Error | Click Refresh to re-run extraction |
+| Required section present: `## Accessibility` | Error | Click Refresh to re-run extraction |
+| Required section present: `## Writing Tone` | Error | Click Refresh to re-run extraction |
+| Required section present: `## Rules: Do` | Error | Click Refresh to re-run extraction |
+| Required section present: `## Rules: Don't` | Error | Click Refresh to re-run extraction |
+| Required section present: `## Guideline Authoring Workflow` | Error | Click Refresh to re-run extraction |
+| Required section present: `## Required Output Structure` | Error | Click Refresh to re-run extraction |
+| Required section present: `## Component Rule Expectations` | Error | Click Refresh to re-run extraction |
+| Required section present: `## Quality Gates` | Error | Click Refresh to re-run extraction |
+| Accessibility target included | Error | Add `WCAG 2.2 AA` to the Accessibility section |
+| Missing explicit state mention: default | Warning | Review Component Rule Expectations manually |
+| Missing explicit state mention: hover | Warning | Review Component Rule Expectations manually |
+| Missing explicit state mention: focus-visible | Warning | Review Component Rule Expectations manually |
+| Missing explicit state mention: active | Warning | Review Component Rule Expectations manually |
+| Missing explicit state mention: disabled | Warning | Review Component Rule Expectations manually |
+| Missing explicit state mention: loading | Warning | Review Component Rule Expectations manually |
+| Missing explicit state mention: error | Warning | Review Component Rule Expectations manually |
+| Contains non-negotiable rule wording | Warning | Review Rules: Do and Rules: Don't sections |
+| Contains recommendation wording | Warning | Review Rules: Do and Rules: Don't sections |
+
+## Where validation results appear
+
+After each extraction, the popup renders errors and warnings as a list below the mode switcher, using the `renderValidationIssues()` function in `popup/popup.js`. Errors and warnings are displayed in the same list in the order they appear in the `validation.errors` and `validation.warnings` arrays. The issues list is hidden when there are no issues.
+
+For a detailed breakdown of how many checks passed in the current run, click the **?** button to open the Help panel. It shows the pass rate (e.g., "12/14 checks") alongside the full generation pipeline summary.

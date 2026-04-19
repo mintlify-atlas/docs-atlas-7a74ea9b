@@ -1,0 +1,78 @@
+---
+title: "Troubleshoot DESIGN.md Style Extractor common errors"
+description: "Fix common errors in DESIGN.md Style Extractor — chrome:// pages, missing responses, download failures, Quick Install issues, and low-confidence extraction."
+---
+
+Most issues with the DESIGN.md Style Extractor fall into one of a few categories: the extension cannot reach the active tab, the content script did not inject correctly, or extraction produced output that is too sparse to validate cleanly. The accordion sections below cover each scenario with the exact error message you will see and the steps to resolve it.
+
+<Tip>
+  Open the Help panel by clicking the **?** button in the extension popup. It shows how the last extraction was generated — including how many elements were sampled, how many tokens were inferred, and how many validation checks passed. This is useful for diagnosing low-confidence or incomplete extractions before troubleshooting further.
+</Tip>
+
+<Note>
+  For persistent issues that do not match any scenario below, open the browser console with **Ctrl+Shift+J** (Windows/Linux) or **Cmd+Option+J** (Mac) and check for extension errors. Look for messages from `service-worker.js` or `content-script.js`.
+</Note>
+
+## Common issues
+
+<AccordionGroup>
+  <Accordion title='"Extraction is not available on chrome:// pages."'>
+    Chrome does not allow extensions to inject scripts into its own internal pages such as `chrome://extensions`, `chrome://settings`, or `chrome://newtab`. The `getActiveTab()` function in `service-worker.js` checks the tab URL and throws this error before any extraction is attempted.
+
+    **Fix:** Navigate to a regular website (any `http://` or `https://` page) and then open the extension popup. The extension can only extract styles from web pages, not from Chrome's built-in pages.
+  </Accordion>
+
+  <Accordion title='"No active tab available."'>
+    The extension tried to query the active tab but found none. This can happen if no browser window has focus when the popup is opened, or if the popup was opened from the extensions page rather than from a tab context.
+
+    **Fix:** Click on any browser tab to make sure a tab is focused, then click the extension icon in the toolbar to open the popup again.
+  </Accordion>
+
+  <Accordion title='"No extraction response from tab."'>
+    The content script was injected into the page but did not respond with an extraction payload. This typically occurs when the page reloaded while injection was in progress, when the page uses strict Content Security Policy headers that block script execution, or when the tab navigated away before the message round-trip completed.
+
+    **Fix:** Refresh the web page you want to extract from, wait for it to fully load, and then click **Refresh** in the extension popup to re-run extraction.
+  </Accordion>
+
+  <Accordion title='"Cannot download empty markdown."'>
+    The **Download** button was clicked before a successful extraction had run. The `handleDownload()` function in `service-worker.js` checks that `message.markdown` is non-empty before creating a download URL.
+
+    **Fix:** Click **Refresh** in the popup to run extraction first. Once the preview area shows generated markdown, the Download button will become active.
+  </Accordion>
+
+  <Accordion title="Low sample size warning (fewer than 30 elements)">
+    During normalization in `lib/normalize.mjs`, if `payload.sampledElements` is less than 30, the diagnostic message `"Low sample size: fewer than 30 visible elements were extracted."` is added to the output. This means the token inference may be incomplete because there were not enough visible elements on the page to build a representative sample.
+
+    **Fix:** Try extracting from a page with more visible components — such as a component library, a dashboard, or a page with multiple interactive elements. If the page is dynamic, interact with it first (open menus, expand accordions, scroll to load more content) to make more elements visible before clicking Refresh.
+  </Accordion>
+
+  <Accordion title="Font family not detected">
+    If the normalization pipeline cannot confidently identify a primary font family from computed styles, the diagnostic `"Main font family could not be confidently extracted from computed styles."` is added. This appears in the `diagnostics` array of the normalized output and may be noted in the generated file. It commonly occurs on pages that use system font stacks such as `-apple-system, BlinkMacSystemFont, sans-serif` where the resolved family varies by operating system.
+
+    **Fix:** The generated output will note that the font family could not be confidently determined. Define your font tokens manually in the `## Style Foundations` section of the generated file. Use the computed font stack as a starting reference.
+  </Accordion>
+
+  <Accordion title='Quick Install: "Quick install cancelled."'>
+    When you click a Quick Install button (Claude Code, Codex, or Cursor), the extension opens a native directory picker using the File System Access API. If you dismiss this picker without selecting a folder, an `AbortError` is thrown, which the `isAbortError()` check in `popup/popup.js` catches, and the message `"Quick install cancelled."` is displayed.
+
+    **Fix:** Click the Quick Install button again and select the root folder of your project in the directory picker. The extension will write the SKILL.md file to the appropriate subdirectory (e.g., `.claude/skills/design-system/SKILL.md` for Claude Code).
+  </Accordion>
+
+  <Accordion title="Quick Install falls back to copy or download">
+    If `window.showDirectoryPicker` is not available — which can happen in older Chrome versions or due to OS-level restrictions — the `fallbackQuickInstall()` function in `popup/popup.js` runs instead. It attempts to copy the SKILL.md content to the clipboard and trigger a file download. A message similar to `"Copied content. Downloaded SKILL.md. Move it to <project>/.claude/skills/design-system/SKILL.md for Claude Code."` is displayed.
+
+    **Fix:** Move the downloaded `SKILL.md` file manually to the appropriate directory in your project. The File System Access API requires Chrome 86 or later and may be restricted in managed enterprise environments.
+  </Accordion>
+
+  <Accordion title="Extension not visible in the toolbar">
+    Chrome automatically hides extensions from the toolbar to save space. The extension is still installed and functional — it is just not pinned.
+
+    **Fix:** Click the puzzle-piece icon on the right side of the Chrome toolbar to open the extensions menu. Find **DESIGN.md Style Extractor - TypeUI** in the list and click the pin icon next to it to keep it visible in the toolbar.
+  </Accordion>
+
+  <Accordion title="All validation checks fail after extraction">
+    If all or most validation checks fail immediately after a generation run, the extraction may have completed but the generator produced an empty or severely truncated output. This can happen when the page is a single-page app that has not yet rendered its main content, or when the tab context changed during the extraction round-trip.
+
+    **Fix:** Click **Refresh** in the popup to re-run the full extraction pipeline. Make sure the target page is fully loaded and that you are not on a loading screen or redirect page. If the issue persists, open the browser console to check for errors from the service worker.
+  </Accordion>
+</AccordionGroup>

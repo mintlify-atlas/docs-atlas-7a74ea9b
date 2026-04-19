@@ -1,0 +1,85 @@
+---
+title: "Contribute to DESIGN.md Style Extractor: dev guide"
+description: "Set up a local development environment, run the test suite, and understand the project structure for contributing to the DESIGN.md Style Extractor extension."
+---
+
+DESIGN.md Style Extractor is open source under the MIT license. Contributions — bug fixes, new features, documentation improvements — are welcome. The repository is at [https://github.com/bergside/design-md-chrome](https://github.com/bergside/design-md-chrome). This page covers how to get the extension running locally, how to run the test suite, and how the codebase is organized.
+
+<Tip>
+  The TypeUI DESIGN.md format reference is at [https://www.typeui.sh/design-md](https://www.typeui.sh/design-md). If you are contributing to the generation pipeline, this reference defines the structure and intent of each section the extension produces.
+</Tip>
+
+<Note>
+  Curated design skills for popular design systems are available at [https://www.typeui.sh/design-skills](https://www.typeui.sh/design-skills). These can serve as reference outputs when developing or testing generation changes.
+</Note>
+
+## Local development setup
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/bergside/design-md-chrome.git
+    cd design-md-chrome
+    ```
+
+    No build step is required. The extension uses native ES modules and runs directly in Chrome with Manifest V3.
+  </Step>
+
+  <Step title="Load the extension in Chrome">
+    Open `chrome://extensions` in Chrome. Enable **Developer mode** using the toggle in the top-right corner. Click **Load unpacked** and select the cloned project folder.
+
+    The extension will appear in your extensions list as **DESIGN.md Style Extractor - TypeUI** (version 0.4.0). Pin it to the toolbar using the puzzle-piece icon.
+  </Step>
+
+  <Step title="Make changes and reload">
+    The reload behavior depends on which files you change:
+
+    - **`content-script.js` or `service-worker.js`** — Go to `chrome://extensions` and click the reload icon next to the extension after saving your changes. The service worker does not hot-reload automatically.
+    - **`popup/` files** — Changes to `popup.html`, `popup.css`, or `popup.js` take effect the next time you open the extension popup. Simply close and reopen it.
+    - **`lib/` modules** — These are imported by the service worker, so changes require reloading the extension at `chrome://extensions`.
+  </Step>
+</Steps>
+
+## Running the test suite
+
+The test suite validates the full pipeline: normalization, DESIGN.md generation, SKILL.md generation, and validation. It uses Node.js's built-in `assert` module and requires no additional dependencies.
+
+```bash
+node tests/run-tests.mjs
+```
+
+When all tests pass, the output is:
+
+```
+All tests passed.
+```
+
+Tests are located in `tests/run-tests.mjs`. The file uses a `mockPayload` that represents a realistic dashboard page with typography, colors, spacing, radius, shadows, motion, components, and site signals. Assertions cover:
+
+- Typography scale inference (at least 3 size steps)
+- Main font family identification (`Inter` from the mock)
+- Color palette coverage (at least 3 tokens)
+- Spacing scale coverage (at least 2 steps)
+- Full DESIGN.md and SKILL.md validation passing with `isValid: true`
+- Presence of managed block markers in SKILL.md
+- Accessibility target string in DESIGN.md
+- Extraction URL and main font style token in both output modes
+- Audience and product surface inference from site signals
+
+When adding new generation logic, add corresponding assertions to `tests/run-tests.mjs` to keep the pipeline covered.
+
+## Project structure
+
+| File or directory | Role |
+|---|---|
+| `manifest.json` | Chrome extension manifest (Manifest V3). Declares permissions: `activeTab`, `scripting`, `storage`, `downloads`. |
+| `content-script.js` | Injected into web pages by the service worker. Scans visible DOM elements and captures computed typography, colors, spacing, radius, shadows, and motion values. Responds to the `TYPEUI_EXTRACT_STYLES` message. |
+| `service-worker.js` | Background service worker. Handles `RUN_EXTRACTION` and `DOWNLOAD_MARKDOWN` messages from the popup. Orchestrates injection, normalization, generation, and validation. |
+| `lib/normalize.mjs` | Token normalization pipeline. Deduplicates and groups raw computed values into semantic token sets. Produces diagnostics when sample size, color diversity, or typography variety is too low to generate confident tokens. |
+| `lib/generate-design-md.mjs` | DESIGN.md generation. Assembles the normalized token data and site profile into the full 11-section DESIGN.md format. |
+| `lib/generate-skill-md.mjs` | SKILL.md generation. Produces a YAML-frontmatter skill file with managed block markers for use with agent tools such as Claude Code, Codex, and Cursor. |
+| `lib/validate.mjs` | Output validation. Checks required headings, required UI states, skill-mode frontmatter, accessibility target wording, and normative language. Returns `{ isValid, errors, warnings, checks }`. |
+| `popup/` | Extension popup UI. `popup.html` defines the layout; `popup.css` styles it; `popup.js` manages state, sends messages to the service worker, renders validation issues, and handles Quick Install. |
+| `assets/` | Extension icons in 16×16, 32×32, 48×48, and 128×128 PNG sizes, plus any additional logos. |
+| `scripts/` | Helper scripts for development. `scripts/generate-icons.sh` regenerates the icon set from a source image. Run this script if you update the extension icon. |
+| `tests/` | Test suite. `tests/run-tests.mjs` is the single test entry point. |

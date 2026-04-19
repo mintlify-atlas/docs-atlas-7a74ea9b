@@ -1,80 +1,117 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: "Quickstart: extract styles and generate your first file"
+description: "Extract styles from any live website and generate a DESIGN.md or SKILL.md file using the DESIGN.md Style Extractor Chrome extension in five steps."
 ---
 
-## Get started in three steps
+The fastest path to a design system file is to navigate to a site with rich visible UI, open the extension, and click **Refresh**. The extension samples up to 280 visible elements, normalizes the extracted tokens, and generates a complete markdown file in seconds.
 
-Get your documentation site running locally and make your first customization.
+<Note>
+  Extraction does not work on `chrome://` pages or the Chrome Web Store. Navigate to any regular website before opening the extension.
+</Note>
 
-### Step 1: Set up your local environment
+## Generate your first file
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+<Steps>
+  <Step title="Install the extension">
+    If you haven't already, load the extension in Chrome. Open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and select the project folder. See [Installation](/installation) for detailed steps.
+  </Step>
+  <Step title="Navigate to a site with rich UI">
+    Open any website you want to extract from. For best results, choose a page with visible buttons, forms, navigation, and cards — more visible elements means better token coverage.
 
-### Step 2: Deploy your changes
+    <Tip>
+      Try a product's marketing or dashboard page rather than a plain landing page. The more UI components visible, the higher the token coverage and site profile confidence.
+    </Tip>
+  </Step>
+  <Step title="Open the extension">
+    Click the DESIGN.md Style Extractor icon in your Chrome toolbar. If you don't see it, click the puzzle icon and pin the extension.
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    The popup opens with the mode switcher at the top (DESIGN.md / SKILL.md) and a markdown preview area below.
+  </Step>
+  <Step title="Choose your output mode">
+    Select the mode that matches your use case:
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    - **DESIGN.md** — human-readable design system documentation you can share or paste into an AI conversation
+    - **SKILL.md** — agent-ready skill file with frontmatter for direct installation into Claude Code, Codex, or Cursor
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    The extension remembers your last mode selection using `chrome.storage.local`.
+  </Step>
+  <Step title="Run extraction">
+    Click the **Refresh** button (circular arrow icon). The extension injects the content script into the active tab, collects computed styles from up to 280 visible elements, normalizes the values into semantic tokens, and generates the output markdown.
 
-### Step 3: Go live
+    The preview area shows the generated file when complete. Any validation warnings appear in an issues list below the mode switcher.
+  </Step>
+  <Step title="Review the output">
+    Read through the generated file in the preview. Check the **Help** panel (? button) to see:
+    - How many elements were sampled
+    - Token coverage breakdown (typography, color, spacing, radius, shadow, motion)
+    - Site profiling evidence and confidence level
+    - How many validation checks passed
+  </Step>
+  <Step title="Save or install the file">
+    You have three options:
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    **Download** — Click the download icon to save the file as `DESIGN.md` or `SKILL.md`.
+
+    **Copy** — Click the copy icon to copy the markdown to your clipboard.
+
+    **Quick Install** — Click a provider button to write the SKILL.md directly into your project directory.
+  </Step>
+</Steps>
+
+## Quick Install target paths
+
+When you use Quick Install, the extension writes `SKILL.md` to a subdirectory inside the project root you select:
+
+| Provider | Target path |
+|---|---|
+| Claude Code | `.claude/skills/design-system/SKILL.md` |
+| Codex | `.agents/skills/design-system/SKILL.md` |
+| Cursor | `.cursor/skills/design-system/SKILL.md` |
+
+The extension creates intermediate directories automatically using the File System Access API. If the API is not available, it falls back to copying to clipboard and downloading the file.
+
+<Warning>
+  When the directory picker opens, select your **project root** — not a subdirectory. The extension appends the full target path from the root.
+</Warning>
+
+## How extraction works
+
+The extension's content script (`content-script.js`) uses a prioritized selector list to find visible elements:
+
+```javascript
+const selectors = [
+  "body",
+  "h1,h2,h3,h4,h5,h6",
+  "p",
+  "a",
+  "button",
+  "input,textarea,select",
+  "label",
+  "nav,header,footer,main,section,article,aside",
+  "ul li,ol li",
+  "table,th,td",
+  "[role='button']",
+  "[class*='card']",
+  "[class*='btn']",
+  "[tabindex]"
+];
+```
+
+Elements are skipped if they have zero dimensions, `display: none`, or `visibility: hidden`. The script samples up to 280 unique visible elements and returns their computed typography, color, spacing, radius, shadow, and motion values.
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="DESIGN.md format" icon="file-code" href="/outputs/design-md">
+    Understand the 11 required sections in every generated DESIGN.md
+  </Card>
+  <Card title="SKILL.md format" icon="brain" href="/outputs/skill-md">
+    Learn how SKILL.md files work with AI coding tools
+  </Card>
+  <Card title="Using with Claude Code" icon="robot" href="/guides/using-with-claude">
+    Install the SKILL.md into your Claude Code project
+  </Card>
+  <Card title="Interpreting results" icon="magnifying-glass" href="/guides/interpreting-results">
+    Understand diagnostics and improve extraction quality
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

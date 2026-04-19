@@ -1,0 +1,180 @@
+---
+title: "Output generation: building and validating markdown files"
+description: "Trace the generation pipeline: inferVisualStyle(), DESIGN.md vs SKILL.md structure, validateMarkdownOutput() checks, and output mode persistence explained."
+---
+
+Once the normalized token data is ready, the extension generates a structured markdown file and validates it before returning the result to the popup. The entire pipeline is orchestrated by `handleExtraction()` in `service-worker.js`, and output generation is split across `lib/generate-design-md.mjs` and `lib/generate-skill-md.mjs` depending on the selected mode.
+
+## The full pipeline
+
+<Steps>
+  <Step title="Inject the content script">
+    `injectExtractor(tabId)` calls `chrome.scripting.executeScript` with `content-script.js`. The script installs itself idempotently using `window.__typeuiStyleExtractorInstalled`.
+  </Step>
+  <Step title="Request the extraction payload">
+    `requestExtractionPayload(tabId)` sends a `TYPEUI_EXTRACT_STYLES` message to the tab and wraps the callback in a Promise. If the response is missing or has `ok: false`, the promise rejects with the error message.
+  </Step>
+  <Step title="Normalize extracted styles">
+    `normalizeExtractedStyles(payload)` processes the raw arrays into named design tokens, font style metadata, a site profile, and a diagnostics array.
+  </Step>
+  <Step title="Generate markdown">
+    Depending on `message.mode`, either `generateDesignMarkdown(context)` or `generateSkillMarkdown(context)` is called. Both receive the same normalized data object.
+  </Step>
+  <Step title="Validate the output">
+    `validateMarkdownOutput(mode, markdown)` checks structural completeness and returns a result object. Validation errors and warnings are included in the response but do not block the output from being returned.
+  </Step>
+  <Step title="Persist the output mode">
+    If `message.persistOutputMode` is not explicitly `false`, `chrome.storage.local.set({ outputMode: mode })` persists the mode (`"design"` or `"skill"`) so the popup can restore the last selection on next open.
+  </Step>
+</Steps>
+
+## Inferring the system name
+
+`inferSystemName()` derives a clean product name from the page title. It strips everything after a pipe character (`|`) or a dash (`-`) and trims whitespace:
+
+```javascript
+function inferSystemName(title) {
+  const clean = title
+    .replace(/\s*\|\s*.*/g, "")
+    .replace(/\s*-\s*.*/g, "")
+    .trim();
+  return clean || "Extracted Design System";
+}
+```
+
+A title like `"Stripe Dashboard | Manage your business"` becomes `"Stripe Dashboard"`. If the title is empty or reduced to nothing after stripping, the fallback `"Extracted Design System"` is used.
+
+## Inferring visual style
+
+`inferVisualStyle()` classifies the design vocabulary in three tiers based on the count of color tokens and spacing tokens in the normalized output:
+
+```javascript
+function inferVisualStyle(normalized) {
+  const colorCount = normalized.colorPalette.length;
+  const spacingCount = normalized.spacingScale.length;
+  if (colorCount >= 8 && spacingCount >= 6) {
+    return "structured, tokenized, content-first";
+  }
+  if (colorCount >= 5) {
+    return "clean, functional, implementation-oriented";
+  }
+  return "minimal, utility-first, accessibility-prioritized";
+}
+```
+
+| Colors | Spacing | Visual style label |
+|---|---|---|
+| ≥ 8 and ≥ 6 spacing steps | — | `structured, tokenized, content-first` |
+| ≥ 5 | — | `clean, functional, implementation-oriented` |
+| < 5 | — | `minimal, utility-first, accessibility-prioritized` |
+
+This label appears in the **Style Foundations** section of DESIGN.md.
+
+## DESIGN.md generation
+
+`generateDesignMarkdown()` assembles a fixed-structure markdown document with 11 top-level sections. Token values are serialized by `joinTokens()` — which formats each token as a backtick-quoted `key=value` pair — and by `joinTokenGroups()`, which joins multiple token groups with ` | ` separators.
+
+The component density line in the **Component Rule Expectations** section is built from `normalized.componentHints`, which is a sorted list of `{ type, count }` objects for components with a count greater than zero.
+
+Any entries in `normalized.diagnostics` are appended as a bullet point at the end of the **Component Rule Expectations** section.
+
+## SKILL.md generation
+
+`generateSkillMarkdown()` produces the same logical content but adds structure specific to AI skill files:
+
+**Frontmatter** — the file opens with a YAML block:
+
+```yaml
+---
+name: design-system-{slug}
+description: Creates implementation-ready design-system guidance...
+---
+```
+
+The `name` field is built by prepending `"design-system-"` to a slug derived from `slugify()`. `slugify()` lowercases the input, replaces any non-alphanumeric character sequence with a hyphen, strips leading and trailing hyphens, and truncates to 48 characters:
+
+```javascript
+function slugify(value) {
+  return String(value || "extracted")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+}
+```
+
+**Managed block markers** — the entire content body is wrapped in HTML comment markers:
+
+```html
+<!-- TYPEUI_SH_MANAGED_START -->
+...content...
+<!-- TYPEUI_SH_MANAGED_END -->
+```
+
+These markers allow tooling to identify and replace the managed block when re-extracting without disturbing content outside the markers.
+
+## Validating the output
+
+`validateMarkdownOutput(mode, markdown)` in `lib/validate.mjs` performs three categories of checks and returns `{ isValid, errors, warnings, checks }`.
+
+**Required headings** — all 11 sections must be present as exact strings. A missing section is recorded as an error (not a warning):
+
+```javascript
+const REQUIRED_HEADINGS = [
+  "## Mission",
+  "## Brand",
+  "## Style Foundations",
+  "## Accessibility",
+  "## Writing Tone",
+  "## Rules: Do",
+  "## Rules: Don't",
+  "## Guideline Authoring Workflow",
+  "## Required Output Structure",
+  "## Component Rule Expectations",
+  "## Quality Gates"
+];
+```
+
+**Required state mentions** — a case-insensitive search checks that all seven component states are mentioned anywhere in the document. Missing states are recorded as warnings, not errors:
+
+```javascript
+const REQUIRED_STATES = [
+  "default", "hover", "focus-visible", "active",
+  "disabled", "loading", "error"
+];
+```
+
+**Skill-mode checks** — when `mode === "skill"`, four additional checks run as errors: the file must start with `---`, include `name: design-system-`, include `description:`, and contain both `TYPEUI_SH_MANAGED_START` and `TYPEUI_SH_MANAGED_END` markers.
+
+**Rule wording** — the document must contain the string `"WCAG 2.2 AA"` (error if missing), the word `"must"` (warning if missing), and the word `"should"` (warning if missing).
+
+The validation result shape:
+
+```javascript
+{
+  isValid: true,          // false if errors.length > 0
+  errors: [],             // structural problems that indicate a broken output
+  warnings: [],           // missing state mentions or weak rule language
+  checks: [               // every check that ran, with pass/fail status
+    { label: "Required section present: ## Mission", ok: true },
+    { label: "Accessibility target included", ok: true },
+    // ...
+  ]
+}
+```
+
+<Tip>
+  Validation errors do not prevent the markdown from being returned or downloaded. They are surfaced in the popup so you can review them before saving the file.
+</Tip>
+
+## Output mode persistence
+
+The selected output mode is stored in `chrome.storage.local` under the key `outputMode`. It is initialized to `"design"` when the extension is installed:
+
+```javascript
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.storage.local.set({ outputMode: "design" });
+});
+```
+
+Each successful extraction updates this value unless `message.persistOutputMode` is explicitly set to `false`. The popup reads this key on load to restore the last mode selection.

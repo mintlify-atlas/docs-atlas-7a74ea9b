@@ -1,0 +1,123 @@
+---
+title: "Interpreting extraction results and diagnostic messages"
+description: "Learn how to read diagnostics, validation issues, component density signals, and site profile fields in the DESIGN.md Style Extractor output."
+---
+
+After the extension runs on a page, the generated DESIGN.md or SKILL.md file represents the extractor's best inference from the visible DOM at the moment of capture. The quality of the output depends on how many elements were sampled, how diverse the page's styling is, and how clearly the site's structure signals its purpose. Understanding the diagnostic messages, the help panel breakdown, and the validation issue list helps you assess which parts of the generated file are ready to use and which sections may need manual review or a re-run on a richer page.
+
+## Diagnostic messages
+
+Diagnostics appear in the extension's issues list (below the mode switcher) when the extraction pipeline detects conditions that reduce token confidence. They are also embedded in the DESIGN.md output under the `Component Rule Expectations` section.
+
+<AccordionGroup>
+  <Accordion title="Low sample size: fewer than 30 visible elements">
+    This diagnostic fires when `payload.sampledElements` is below 30. It means the extractor had limited DOM coverage to work with, which reduces the reliability of all token inferences — typography, color, spacing, radius, and shadow values may all be underrepresented.
+
+    **What to do:** Navigate to a page with more visible content — a homepage, a feature page, or a documentation article rather than an empty state, loading screen, or login form. Click the refresh button to re-run extraction on the new page.
+  </Accordion>
+  <Accordion title="Limited color diversity detected">
+    This diagnostic appears when the extracted color palette contains fewer than four distinct colors after normalization and deduplication. It does not mean the extraction failed — the site may intentionally use a minimal palette.
+
+    **What to do:** Review the generated color tokens. If the site truly uses only two or three colors, the token output is accurate. If you expected more colors, try navigating to a page with more UI variation (buttons, alerts, badges, data visualizations) and re-running.
+  </Accordion>
+  <Accordion title="Limited typography variety detected">
+    This diagnostic fires when the extracted typography scale has fewer than three distinct font sizes. A narrow size scale can result in a generated `font.size` token set that does not capture the full range the site uses.
+
+    **What to do:** Navigate to a page that uses multiple heading levels, body text, captions, and labels. Article pages, pricing pages, and documentation pages typically produce richer size scales than single-section landing pages. After navigating, click refresh.
+  </Accordion>
+  <Accordion title="Main font family could not be confidently extracted">
+    This diagnostic means the extractor could not identify a dominant font family from computed styles with sufficient confidence. This happens most often when the page uses generic system font stacks (`-apple-system, BlinkMacSystemFont, sans-serif`) or when no single family appears frequently enough to clear the confidence threshold.
+
+    **What to do:** Check the page's CSS manually to confirm the intended primary font family. In most cases you can add it directly to the `Main font style` line in the generated file. The generated token placeholder will read: `No reliable primary font family detected from computed styles.`
+  </Accordion>
+  <Accordion title="Audience and product surface inference confidence is low">
+    This diagnostic appears when the site profiler's scoring did not produce a confident classification for either the product surface or the audience. Low confidence means the `Brand` section's `Audience` and `Product surface` fields were populated with fallback values.
+
+    **What to do:** Open the help panel (the `?` button) and review the evidence list under Website profiling. Check whether the inferred values make sense for the site. If they do not, edit the `Audience` and `Product surface` fields in the generated file directly before using it.
+  </Accordion>
+</AccordionGroup>
+
+## The help panel
+
+Clicking the `?` button in the extension popup opens the help panel, which shows a step-by-step breakdown of how the current file was generated. The panel is populated by `renderGenerationExplanation()` using data from `state.lastResult`.
+
+The panel covers five pipeline stages:
+
+1. **Style extraction.** Displays the number of sampled elements and total DOM nodes scanned. For example: *"523 sampled elements from 1,840 total nodes."* A low sampled count relative to total nodes suggests the page has many non-visible or off-screen elements.
+
+2. **Token normalization.** Lists the number of tokens produced for each category: typography, color, spacing, radius, shadow, and motion. For example: *"typography 6, color 11, spacing 9, radius 4, shadow 2, motion 4."* These counts help you gauge how complete each token section in the generated file is.
+
+3. **Website profiling.** Shows the inferred audience label, product surface label, and confidence level — high, medium, or low. Up to five pieces of evidence are listed, such as *"documentation: 3 keyword hits"* or *"tables: 4"*. These evidence items explain why the profiler reached its conclusion.
+
+4. **Blueprint assembly.** Describes how the extracted and inferred data was assembled into the required sections (Mission, Brand, Style Foundations, Accessibility, Rules, Workflow, and Quality Gates).
+
+5. **Conformance checks.** Reports how many validation checks passed out of the total. For example: *"passed 8/10 checks."* Failed checks are surfaced in the issues list in the main popup.
+
+<Tip>
+  Open the help panel immediately after extraction to see exactly how many checks passed and which sections the profiler inferred with low confidence. This tells you at a glance whether the file is ready to use or needs manual review.
+</Tip>
+
+## Validation issues
+
+The issues list below the mode switcher shows errors and warnings from the conformance check step. Errors indicate required content is missing or malformed; warnings indicate content that is present but may be incomplete.
+
+<Tabs>
+  <Tab title="Errors">
+    Errors mean the generated file is missing required structure. Common examples include a missing required heading, absent frontmatter fields (in SKILL.md mode), no accessibility target statement, or missing state references in the component rules section. If errors are present, the file may not be usable as-is and will need manual additions before the AI tool can parse it correctly.
+  </Tab>
+  <Tab title="Warnings">
+    Warnings indicate sections that were generated but may have low-confidence content — for example, a color palette with fewer tokens than expected, or a font family line that fell back to a placeholder. Warnings do not prevent the file from being used, but they flag sections worth reviewing before relying on the output for production code generation.
+  </Tab>
+</Tabs>
+
+## Component density signals
+
+The help panel's component density line and the DESIGN.md file's `Component Rule Expectations` section both include a summary of detected component types on the page. These come from the `componentHints` array in the normalized result — components are sorted by count and the top results are reported.
+
+Each hint lists a component type and its count, for example: `buttons: 14, links: 32, inputs: 6, cards: 5, navigation: 2`. These counts reflect structural patterns observed in the DOM and influence how confidently the generated file can specify component behavior.
+
+| Signal | What it means |
+| --- | --- |
+| High button count | The page has clear interactive affordances; button state rules in the generated file will be more grounded. |
+| High input/form count | The page is likely a dashboard or sign-up flow; form validation states are relevant. |
+| High table count | Data-dense interface; table component rules are relevant. |
+| High card count | Content or product listing patterns are present; card layout rules are relevant. |
+| Low counts across all types | The page may be a simple marketing or editorial page with limited interactive components. |
+
+If the panel reports *"No strong component density signals were detected for this page,"* consider navigating to a more interactive page before re-running.
+
+## Site profile fields
+
+The site profiler infers two fields that appear in the `Brand` section of the generated file: `Audience` and `Product surface`. These are derived by scoring URL patterns, page metadata, heading text, navigation labels, CTA text, and structural signals such as code blocks, forms, tables, and pricing sections.
+
+**Audience** reflects who the site is most likely targeting:
+
+- `developers and technical teams` — strong code block presence, developer keywords, or documentation path patterns
+- `authenticated users and operators` — forms, tables, admin/settings keywords
+- `buyers, teams, and decision-makers` — pricing sections, enterprise keywords
+- `online shoppers and consumers` — product markers, checkout signals
+- `readers and knowledge seekers` — article containers, editorial keywords
+
+**Product surface** reflects the type of product or site:
+
+- `documentation site`, `dashboard web app`, `marketing site`, `content site`, `e-commerce storefront`, or `web app` (fallback)
+
+Both values appear in the Brand section as plain text. If they are inaccurate, edit them directly in the generated file.
+
+## When to re-run extraction
+
+Re-run the extraction (by clicking the refresh button or navigating and clicking refresh) in the following situations:
+
+- You navigated to a different page within the same site and want more representative style coverage.
+- The initial results show low sample size, limited color diversity, or limited typography variety diagnostics.
+- The site has shipped a design update since you last extracted.
+- The inferred audience or product surface does not match the site's actual purpose, and you want to give the profiler more signal by navigating to a richer page.
+
+<CardGroup cols={2}>
+  <Card title="Troubleshooting" href="/reference/troubleshooting">
+    Solutions for common issues including failed extractions, missing tokens, and directory picker errors.
+  </Card>
+  <Card title="SKILL.md format" href="/outputs/skill-md">
+    Detailed reference for the frontmatter fields, managed markers, and all sections in a generated SKILL.md file.
+  </Card>
+</CardGroup>

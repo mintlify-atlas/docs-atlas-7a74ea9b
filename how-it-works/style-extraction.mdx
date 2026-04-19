@@ -1,0 +1,141 @@
+---
+title: "Style extraction: how the extension reads your page"
+description: "Learn how DESIGN.md injects a content script, samples visible DOM elements, and collects typography, color, spacing, and component data from any web page."
+---
+
+When you trigger an extraction, the extension does not read CSS files directly. Instead, it injects a script into the active tab and queries the browser's own computed style engine, capturing the styles the browser has already resolved and applied to real elements on screen. This approach captures overrides, specificity resolution, and inherited values that static CSS parsing would miss.
+
+## How the content script is injected
+
+The service worker calls `chrome.scripting.executeScript` with `content-script.js` as the target file. The script guards against being installed twice using the `window.__typeuiStyleExtractorInstalled` flag, so re-triggering an extraction on the same tab is safe.
+
+Once installed, the script registers a `chrome.runtime.onMessage` listener. When it receives a `TYPEUI_EXTRACT_STYLES` message from the service worker, it calls `extractStylesFromPage()` and returns the result as a response payload.
+
+<Note>
+  Extraction is not available on `chrome://` pages. The service worker checks the active tab URL before injecting and throws an error if the scheme is `chrome://`.
+</Note>
+
+## Element sampling strategy
+
+Rather than inspecting every element in the DOM, `collectSampledElements(280)` walks a prioritized list of CSS selectors in order, collecting up to 280 unique visible elements. The selector list, in priority order, is:
+
+```javascript
+const selectors = [
+  "body",
+  "h1,h2,h3,h4,h5,h6",
+  "p",
+  "a",
+  "button",
+  "input,textarea,select",
+  "label",
+  "nav,header,footer,main,section,article,aside",
+  "ul li,ol li",
+  "table,th,td",
+  "[role='button']",
+  "[class*='card']",
+  "[class*='btn']",
+  "[tabindex]"
+];
+```
+
+Elements are tracked with a `Set` to prevent duplicates. The function stops as soon as 280 elements are collected, so structurally significant elements like headings and interactive controls — which appear earlier in the list — are prioritized over generic containers.
+
+## Visibility filtering
+
+Before any element is added to the sample, `isVisible()` checks two conditions:
+
+1. **Non-zero bounding box** — `getBoundingClientRect()` must return a width and height both greater than zero.
+2. **Visible computed style** — `getComputedStyle` must not return `display: none` or `visibility: hidden`.
+
+Elements that are in the DOM but not rendered (collapsed, off-screen with zero dimensions, or explicitly hidden) are excluded from the sample.
+
+## Data collected per element
+
+For each sampled element, `extractStylesFromPage()` calls `window.getComputedStyle()` and records the following properties:
+
+**Typography**
+
+| Property | CSS value read |
+|---|---|
+| `fontFamily` | `style.fontFamily` |
+| `fontSize` | `style.fontSize` |
+| `lineHeight` | `style.lineHeight` |
+| `fontWeight` | `style.fontWeight` |
+| `letterSpacing` | `style.letterSpacing` |
+
+**Colors**
+
+| Property | CSS value read |
+|---|---|
+| `textColor` | `style.color` |
+| `backgroundColor` | `style.backgroundColor` |
+| `borderColor` | `style.borderColor` |
+| `outlineColor` | `style.outlineColor` |
+
+**Spacing** — all four sides of both margin and padding: `marginTop`, `marginRight`, `marginBottom`, `marginLeft`, `paddingTop`, `paddingRight`, `paddingBottom`, `paddingLeft`.
+
+**Radius and shadows** — `style.borderRadius` and `style.boxShadow`.
+
+**Motion**
+
+| Property | CSS value read |
+|---|---|
+| `transitionDuration` | `style.transitionDuration` |
+| `transitionTimingFunction` | `style.transitionTimingFunction` |
+| `animationDuration` | `style.animationDuration` |
+| `animationTimingFunction` | `style.animationTimingFunction` |
+
+## Component counts
+
+`collectComponentCounts()` runs seven separate `document.querySelectorAll` calls and returns an array of `{ type, count }` objects:
+
+```javascript
+const map = {
+  buttons: "button, [role='button'], .btn, [class*='button']",
+  links: "a[href]",
+  inputs: "input, textarea, select",
+  cards: ".card, [class*='card'], article",
+  navigation: "nav, header",
+  lists: "ul, ol",
+  tables: "table"
+};
+```
+
+These counts are later used in the generated markdown to describe the page's component density.
+
+## Site signals
+
+`collectSiteSignals()` gathers semantic metadata that feeds the site profiling stage. It reads:
+
+- **Page metadata** — `document.title`, plus `<meta>` tags for `description`, `keywords`, `og:type`, `og:site_name`, and `application-name`.
+- **Headings** — up to 10 `h1` and `h2` texts, capped at 120 characters each.
+- **Navigation labels** — up to 24 link and button texts from `nav` and `header` elements, capped at 50 characters each.
+- **CTA texts** — up to 24 button and submit input labels, capped at 40 characters each.
+- **Body text sample** — the first 14,000 characters of `document.body.innerText`, whitespace-normalized.
+- **Element counts** — a structured object with counts for `forms`, `inputs`, `tables`, `codeBlocks` (`pre, code`), `articles`, `pricingSections`, `productMarkers`, `authMarkers`, and `checkoutMarkers`. The last four are detected by matching keywords in element text content.
+
+## The extraction payload
+
+`extractStylesFromPage()` assembles all of the above into a single object:
+
+```json
+{
+  "source": {
+    "url": "https://example.com",
+    "title": "Example Site"
+  },
+  "sampledAt": "2026-04-19T12:00:00.000Z",
+  "totalElements": 1842,
+  "sampledElements": 280,
+  "typography": [ /* one object per sampled element */ ],
+  "colors": [ /* one object per sampled element */ ],
+  "spacing": [ /* one object per sampled element */ ],
+  "radius": [ /* one string per sampled element */ ],
+  "shadows": [ /* one string per sampled element */ ],
+  "motion": [ /* one object per sampled element */ ],
+  "components": [ /* { type, count } from collectComponentCounts() */ ],
+  "siteSignals": { /* metadata from collectSiteSignals() */ }
+}
+```
+
+This payload is sent back to the service worker via `sendResponse`, where it enters the normalization pipeline.

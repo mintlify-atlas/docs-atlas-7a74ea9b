@@ -1,0 +1,83 @@
+---
+title: "Use SKILL.md with Cursor for design system guidance"
+description: "Install a generated SKILL.md into your Cursor project's .cursor/skills/ directory and activate it in the Cursor chat for consistent UI output."
+---
+
+Cursor reads skill files from the `.cursor/skills/` directory at your project root and makes them available as named skills in the Cursor chat interface. After you generate a SKILL.md file with the DESIGN.md Style Extractor extension, installing it into this directory gives Cursor access to the extracted typography tokens, color palette, spacing scale, component rules, and accessibility requirements from the site you captured.
+
+## How Cursor discovers skills
+
+Cursor looks for skill files under `.cursor/skills/` when processing chat requests. The `name` field in each skill's YAML frontmatter — for example, `name: design-system-stripe` — is the identifier you use to activate it in the chat. The name is derived from the extracted site's brand or page title and is visible at the top of the generated file.
+
+## Quick install
+
+Quick Install writes the SKILL.md file directly into your project folder using the browser's File System Access API.
+
+<Steps>
+  <Step title="Navigate to the target site">
+    Open the website whose design system you want to capture. Use the live production site to ensure computed styles reflect the deployed design rather than a development build.
+  </Step>
+  <Step title="Open the extension and select SKILL.md mode">
+    Click the extension icon in Chrome. In the mode switcher, select **SKILL.md**. The extension will extract styles from the active tab and prepare the skill file content.
+  </Step>
+  <Step title="Click the Cursor button in Quick Install">
+    In the **Quick install** row at the bottom of the popup, click the **Cursor** button. This calls `installQuick("cursor")` internally, which resolves the target directory as `.cursor/skills/design-system`.
+  </Step>
+  <Step title="Select your project root folder">
+    A directory picker dialog will open. Select the root folder of your project — the one that contains your source files and where the `.cursor/` directory should live. The extension requests `readwrite` access to traverse and create subdirectories.
+  </Step>
+  <Step title="Confirm installation">
+    The extension walks the path `.cursor` → `skills` → `design-system`, creating directories as needed, then writes `SKILL.md`. The popup confirms with: **"Installed for Cursor at .cursor/skills/design-system/"**. The full installed path is:
+
+    ```text
+    .cursor/skills/design-system/SKILL.md
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+  If the target site updates its design — new color palette, font changes, or layout overhaul — regenerate the skill by returning to the site, opening the extension, and running Quick Install again. The new file will overwrite the previous one at the same path.
+</Tip>
+
+## Manual installation
+
+If the directory picker is unavailable or you prefer a manual workflow, download the file and place it yourself.
+
+<Steps>
+  <Step title="Generate and download SKILL.md">
+    With SKILL.md mode selected in the extension, click the download button to save `SKILL.md`, or click the copy button to copy the content to your clipboard.
+  </Step>
+  <Step title="Create the skills directory">
+    In your project root, create the required directory structure:
+
+    ```bash
+    mkdir -p .cursor/skills/design-system
+    ```
+  </Step>
+  <Step title="Place SKILL.md in the directory">
+    Move the downloaded file into `.cursor/skills/design-system/SKILL.md`. The path relative to your project root should be:
+
+    ```text
+    .cursor/skills/design-system/SKILL.md
+    ```
+  </Step>
+</Steps>
+
+## Activating the skill in Cursor chat
+
+In the Cursor chat panel, reference the skill by the `name` value from the frontmatter at the top of the generated file. For example, if the frontmatter contains `name: design-system-linear`, type:
+
+```text
+Use the design-system-linear skill to build this sidebar component.
+```
+
+Cursor will apply the skill's token definitions, component state requirements, accessibility rules, and writing tone when responding.
+
+<CardGroup cols={2}>
+  <Card title="Quick Install details" href="/outputs/quick-install">
+    Learn how Quick Install handles the directory picker, fallback behavior, and what happens when access is denied.
+  </Card>
+  <Card title="SKILL.md format" href="/outputs/skill-md">
+    Understand the frontmatter fields, managed section markers, and all sections in a generated SKILL.md file.
+  </Card>
+</CardGroup>

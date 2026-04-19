@@ -1,0 +1,204 @@
+---
+title: "DESIGN.md output format: all 11 sections explained"
+description: "Learn how the DESIGN.md output format structures design system documentation across 11 required sections for implementation-ready AI guidance."
+---
+
+When you run the DESIGN.md Style Extractor in DESIGN.md mode, it produces a plain markdown file structured around the [TypeUI DESIGN.md open format](https://www.typeui.sh/design-md). Every generated file follows the same 11-section blueprint, giving AI coding tools—and human developers—a consistent, implementation-ready design system reference they can apply directly to UI work.
+
+## What DESIGN.md is
+
+DESIGN.md is a standardized markdown format for design system documentation. It captures extracted visual tokens, accessibility requirements, component behavior rules, and authoring workflows in a single file. The format is designed to be read by AI coding tools such as Claude Code, Codex, and Cursor, as well as by developers who need explicit, non-ambiguous guidance when building UI components.
+
+The file is plain markdown with no frontmatter and no special markers—just structured headings and content. If you need a version with YAML frontmatter and managed block markers for direct installation into an AI tool's skills directory, use [SKILL.md format](/outputs/skill-md) instead.
+
+## The 11 required sections
+
+Every generated DESIGN.md file contains exactly these sections, validated by the extension before the file is made available for download or copy.
+
+### Mission
+
+Defines the design system's objective in one sentence. The generator fills this with the extracted brand name and product surface so the intent is immediately clear.
+
+```markdown
+## Mission
+Create implementation-ready, token-driven UI guidance for Acme that is optimized
+for consistency, accessibility, and fast delivery across web app.
+```
+
+### Brand
+
+Captures product and brand context used throughout the rest of the file. Four fields are always present:
+
+- **Product/brand** — the system name, inferred from the page title
+- **URL** — the source URL the extraction ran against
+- **Audience** — inferred from page structure, metadata, and navigation signals
+- **Product surface** — web app, marketing site, dashboard, or mobile web
+
+```markdown
+## Brand
+- Product/brand: Acme
+- URL: https://acme.example.com
+- Audience: website visitors and product users
+- Product surface: web app
+```
+
+### Style Foundations
+
+Lists the visual tokens extracted from the page. The generator captures up to eight tokens per category and formats them as semantic token assignments.
+
+- **Visual style** — a short description inferred from color and spacing token density
+- **Main font style** — primary font family, stack, base size, weight, and line-height
+- **Typography scale** — up to eight `font.*` tokens with extracted values
+- **Color palette** — up to ten `color.*` tokens
+- **Spacing scale** — up to eight `space.*` tokens
+- **Radius/shadow/motion tokens** — shape and motion values grouped by type
+
+```markdown
+## Style Foundations
+- Visual style: structured, tokenized, content-first
+- Main font style: `font.family.primary=Inter`, `font.family.stack=Inter, sans-serif`,
+  `font.size.base=16px`, `font.weight.base=400`, `font.lineHeight.base=1.5`
+- Typography scale: `font.size.xs=12px`, `font.size.sm=14px`, `font.size.base=16px`,
+  `font.size.lg=18px`, `font.size.xl=20px`, `font.size.2xl=24px`
+- Color palette: `color.text.primary=#111827`, `color.text.secondary=#6B7280`,
+  `color.surface.base=#FFFFFF`, `color.surface.muted=#F9FAFB`, `color.border.default=#E5E7EB`
+- Spacing scale: `space.1=4px`, `space.2=8px`, `space.3=12px`, `space.4=16px`,
+  `space.5=24px`, `space.6=32px`
+- Radius/shadow/motion tokens: `radius.sm=4px`, `radius.md=6px`, `radius.lg=8px` |
+  `shadow.sm=0 1px 2px rgba(0,0,0,.05)` | `motion.duration.fast=150ms`
+```
+
+### Accessibility
+
+Applies WCAG 2.2 AA requirements and interaction constraints. These three rules are always included and never optional:
+
+```markdown
+## Accessibility
+- Target: WCAG 2.2 AA
+- Keyboard-first interactions required.
+- Focus-visible rules required.
+- Contrast constraints required.
+```
+
+### Writing Tone
+
+Sets the expected tone for any guidance authored using this file as a reference.
+
+```markdown
+## Writing Tone
+Concise, confident, implementation-focused.
+```
+
+### Rules: Do
+
+Required implementation practices that every component and guideline in the system must follow:
+
+```markdown
+## Rules: Do
+- Use semantic tokens, not raw hex values, in component guidance.
+- Every component must define states for default, hover, focus-visible, active,
+  disabled, loading, and error.
+- Component behavior should specify responsive and edge-case handling.
+- Interactive components must document keyboard, pointer, and touch behavior.
+- Accessibility acceptance criteria must be testable in implementation.
+```
+
+### Rules: Don't
+
+Anti-patterns and prohibited behaviors that the design system explicitly forbids:
+
+```markdown
+## Rules: Don't
+- Do not allow low-contrast text or hidden focus indicators.
+- Do not introduce one-off spacing or typography exceptions.
+- Do not use ambiguous labels or non-descriptive actions.
+- Do not ship component guidance without explicit state rules.
+```
+
+### Guideline Authoring Workflow
+
+A six-step ordered workflow that structures how new component guidelines are written:
+
+```markdown
+## Guideline Authoring Workflow
+1. Restate design intent in one sentence.
+2. Define foundations and semantic tokens.
+3. Define component anatomy, variants, interactions, and state behavior.
+4. Add accessibility acceptance criteria with pass/fail checks.
+5. Add anti-patterns, migration notes, and edge-case handling.
+6. End with a QA checklist.
+```
+
+### Required Output Structure
+
+Enforces consistent section ordering in any output produced using this design system file:
+
+```markdown
+## Required Output Structure
+- Context and goals.
+- Design tokens and foundations.
+- Component-level rules (anatomy, variants, states, responsive behavior).
+- Accessibility requirements and testable acceptance criteria.
+- Content and tone standards with examples.
+- Anti-patterns and prohibited implementations.
+- QA checklist.
+```
+
+### Component Rule Expectations
+
+Specifies what every component rule must cover, including the page's detected component density:
+
+```markdown
+## Component Rule Expectations
+- Include keyboard, pointer, and touch behavior.
+- Include spacing and typography token requirements.
+- Include long-content, overflow, and empty-state handling.
+- Include known page component density: button (12), input (8), nav (3).
+```
+
+### Quality Gates
+
+Non-negotiable and recommended quality rules expressed with consistent modal verbs:
+
+```markdown
+## Quality Gates
+- Every non-negotiable rule must use "must".
+- Every recommendation should use "should".
+- Every accessibility rule must be testable in implementation.
+- Teams should prefer system consistency over local visual exceptions.
+```
+
+<Note>
+The extension validates all 11 sections after generation and shows any missing headings as errors in the issues list. Validation errors do not prevent download or copy — you can still save the file and review it manually. Sections cannot be reordered or renamed; the format requires exact heading text.
+</Note>
+
+## Validation rules
+
+The extension runs `validateMarkdownOutput()` after generation. For DESIGN.md mode, the checks are:
+
+- All 11 required headings are present with exact text
+- `WCAG 2.2 AA` appears in the Accessibility section
+- At least one `must` keyword is present (for non-negotiable rules)
+- At least one `should` keyword is present (for recommendations)
+
+Warnings (not errors) are raised if any of the seven required component states—`default`, `hover`, `focus-visible`, `active`, `disabled`, `loading`, `error`—are not explicitly mentioned.
+
+## Downloading and copying
+
+After extraction completes, two buttons become active in the extension popup:
+
+- **Copy button** — copies the full markdown to your clipboard using the Clipboard API
+- **Download button** — triggers a browser download of the file as `DESIGN.md`
+
+You can also refresh the extraction at any time to regenerate the file from the current page state.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="SKILL.md format" href="/outputs/skill-md">
+    Add YAML frontmatter and managed block markers for direct AI tool integration.
+  </Card>
+  <Card title="Quick install" href="/outputs/quick-install">
+    Write SKILL.md directly into your project directory with one click.
+  </Card>
+</CardGroup>

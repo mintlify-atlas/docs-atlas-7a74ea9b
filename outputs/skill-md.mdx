@@ -1,0 +1,203 @@
+---
+title: "SKILL.md output format: frontmatter and managed markers"
+description: "Understand the SKILL.md format's YAML frontmatter, managed block markers, and 11 content sections for use with Claude Code, Codex, and Cursor."
+---
+
+SKILL.md is the agent-ready variant of the DESIGN.md format. It wraps the same 11-section design system content in YAML frontmatter and HTML comment markers that AI coding tools use to identify, load, and update skill files. When you switch the extension to SKILL.md mode, the generated file is ready to be placed directly into an AI tool's skills directory without any manual editing.
+
+## How SKILL.md differs from DESIGN.md
+
+Both formats share the same 11 required content sections. The difference is in the file envelope:
+
+| | DESIGN.md | SKILL.md |
+|---|---|---|
+| YAML frontmatter | No | Yes |
+| Managed block markers | No | Yes |
+| `name` field | No | `design-system-{slug}` |
+| `description` field | No | Yes |
+| Plain markdown body | Yes | Yes (inside markers) |
+
+Use DESIGN.md when you want a standalone reference file. Use SKILL.md when you are installing into Claude Code, Codex, Cursor, or any tool that reads skill files from a known directory.
+
+## Frontmatter fields
+
+Every SKILL.md file opens with a YAML frontmatter block containing two required fields.
+
+### `name`
+
+The skill name always starts with `design-system-` followed by a slug derived from the system name, brand, or scope. The slug is lowercased, reduced to alphanumeric characters and hyphens, and capped at 48 characters.
+
+```
+design-system-acme
+design-system-my-product-dashboard
+design-system-extracted
+```
+
+The slug is computed by `slugify()` in `generate-skill-md.mjs`:
+
+```javascript
+function slugify(value) {
+  return String(value || "extracted")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+}
+```
+
+### `description`
+
+A fixed description that tells AI tools when to apply this skill:
+
+```
+Creates implementation-ready design-system guidance with tokens, component behavior,
+and accessibility standards. Use when creating or updating UI rules, component
+specifications, or design-system documentation.
+```
+
+## Managed block markers
+
+The entire content body is wrapped in two HTML comment markers:
+
+```markdown
+<!-- TYPEUI_SH_MANAGED_START -->
+
+# System Name
+
+...all 11 sections...
+
+<!-- TYPEUI_SH_MANAGED_END -->
+```
+
+These markers allow tooling—including future versions of the extension—to locate and replace the managed section without touching anything outside it. The validation check confirms both markers are present and in the correct order.
+
+## Full file structure
+
+A complete SKILL.md file looks like this:
+
+```markdown
+---
+name: design-system-acme
+description: Creates implementation-ready design-system guidance with tokens, component behavior, and accessibility standards. Use when creating or updating UI rules, component specifications, or design-system documentation.
+---
+
+<!-- TYPEUI_SH_MANAGED_START -->
+
+# Acme
+
+## Mission
+Deliver implementation-ready design-system guidance for Acme that can be applied
+consistently across web app interfaces.
+
+## Brand
+- Product/brand: Acme
+- URL: https://acme.example.com
+- Audience: website visitors and product users
+- Product surface: web app
+
+## Style Foundations
+- Visual style: structured, accessible, implementation-first
+- Main font style: `font.family.primary=Inter`, `font.family.stack=Inter, sans-serif`,
+  `font.size.base=16px`, `font.weight.base=400`, `font.lineHeight.base=1.5`
+- Typography scale: `font.size.xs=12px`, `font.size.sm=14px`, `font.size.base=16px`,
+  `font.size.lg=18px`, `font.size.xl=20px`, `font.size.2xl=24px`
+- Color palette: `color.text.primary=#111827`, `color.text.secondary=#6b7280`,
+  `color.surface.base=#ffffff`, `color.surface.muted=#f9fafb`, `color.border.default=#e5e7eb`
+- Spacing scale: `space.1=4px`, `space.2=8px`, `space.3=12px`, `space.4=16px`,
+  `space.5=24px`, `space.6=32px`
+- Radius/shadow/motion tokens: `radius.sm=4px`, `radius.md=6px` | `shadow.sm=0 1px 2px rgba(0,0,0,.05)` | `motion.duration.fast=150ms`
+
+## Accessibility
+- Target: WCAG 2.2 AA
+- Keyboard-first interactions required.
+- Focus-visible rules required.
+- Contrast constraints required.
+
+## Writing Tone
+concise, confident, implementation-focused
+
+## Rules: Do
+- Use semantic tokens, not raw hex values in component guidance.
+- Every component must define required states: default, hover, focus-visible,
+  active, disabled, loading, error.
+- Responsive behavior and edge-case handling should be specified for every
+  component family.
+- Accessibility acceptance criteria must be testable in implementation.
+
+## Rules: Don't
+- Do not allow low-contrast text or hidden focus indicators.
+- Do not introduce one-off spacing or typography exceptions.
+- Do not use ambiguous labels or non-descriptive actions.
+
+## Guideline Authoring Workflow
+1. Restate design intent in one sentence.
+2. Define foundations and tokens.
+3. Define component anatomy, variants, and interactions.
+4. Add accessibility acceptance criteria.
+5. Add anti-patterns and migration notes.
+6. End with QA checklist.
+
+## Required Output Structure
+- Context and goals
+- Design tokens and foundations
+- Component-level rules (anatomy, variants, states, responsive behavior)
+- Accessibility requirements and testable acceptance criteria
+- Content and tone standards with examples
+- Anti-patterns and prohibited implementations
+- QA checklist
+
+## Component Rule Expectations
+- Include keyboard, pointer, and touch behavior.
+- Include spacing and typography token requirements.
+- Include long-content, overflow, and empty-state handling.
+
+## Quality Gates
+- Every non-negotiable rule must use "must".
+- Every recommendation should use "should".
+- Every accessibility rule must be testable in implementation.
+- Prefer system consistency over local visual exceptions.
+
+<!-- TYPEUI_SH_MANAGED_END -->
+```
+
+## Validation rules
+
+The extension runs additional checks for SKILL.md beyond the standard 11-section validation:
+
+| Check | Rule |
+|---|---|
+| Frontmatter block exists | File must start with `---` |
+| `name` field present | Must include `name: design-system-` |
+| `description` field present | Must include `description:` |
+| Managed markers present | Both `TYPEUI_SH_MANAGED_START` and `TYPEUI_SH_MANAGED_END` must exist |
+| All 11 required headings | Same as DESIGN.md |
+| WCAG 2.2 AA | Must appear in the Accessibility section |
+| `must` wording | At least one occurrence required |
+| `should` wording | At least one occurrence required |
+
+## Where AI tools look for skill files
+
+Each AI coding tool reads skill files from a specific directory relative to the project root:
+
+| Tool | Skills directory |
+|---|---|
+| Claude Code | `.claude/skills/` |
+| Codex | `.agents/skills/` |
+| Cursor | `.cursor/skills/` |
+
+The Quick Install feature writes the file to the correct subdirectory automatically. If you are placing the file manually, save it to `<tool-directory>/design-system/SKILL.md` under your project root.
+
+<Tip>
+Use [Quick Install](/outputs/quick-install) to write SKILL.md directly into your project without copying and pasting. The extension creates all intermediate directories automatically.
+</Tip>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="DESIGN.md format" href="/outputs/design-md">
+    Plain markdown output with all 11 sections and no frontmatter.
+  </Card>
+  <Card title="Quick install" href="/outputs/quick-install">
+    Write SKILL.md into your project directory in one click using the File System Access API.
+  </Card>
+</CardGroup>

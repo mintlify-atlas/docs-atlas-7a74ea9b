@@ -1,0 +1,91 @@
+---
+title: "Quick install: write SKILL.md to your project automatically"
+description: "Use Quick Install to write a SKILL.md file directly into your project's AI tool skills directory using the browser's File System Access API."
+---
+
+Quick Install lets you write a generated SKILL.md file directly into your project folder without downloading the file, navigating to the right directory, or pasting any content. You click a provider button, select your project root in the browser's directory picker, and the extension writes the file to the correct path automatically—including any intermediate directories that don't exist yet.
+
+## Supported providers
+
+Three AI coding tools are supported. Each has a dedicated button in the extension popup and a fixed target path relative to your project root:
+
+| Provider | Button label | Target path |
+|---|---|---|
+| Claude Code | Claude Code | `.claude/skills/design-system/SKILL.md` |
+| Codex | Codex | `.agents/skills/design-system/SKILL.md` |
+| Cursor | Cursor | `.cursor/skills/design-system/SKILL.md` |
+
+## How it works
+
+Quick Install always generates a fresh SKILL.md file regardless of which output mode (DESIGN.md or SKILL.md) is currently selected in the extension. It runs a separate extraction with `mode: "skill"` and `persistOutputMode: false`, so your current mode selection is not changed.
+
+<Steps>
+  <Step title="Click a provider button">
+    In the Quick Install section at the bottom of the extension popup, click the button for your AI tool—Claude Code, Codex, or Cursor.
+  </Step>
+  <Step title="Select your project root">
+    The browser shows a directory picker. Navigate to and select the **root folder** of your project—the same folder that contains your `package.json`, `.git` directory, or equivalent project root marker.
+  </Step>
+  <Step title="Wait for confirmation">
+    The extension writes the SKILL.md file to the correct subdirectory. A confirmation message appears below the buttons showing the target directory path, for example: `Installed for Claude Code at .claude/skills/design-system/`.
+  </Step>
+</Steps>
+
+<Warning>
+Select the project root, not a subdirectory. If you select a folder inside your project (such as `src/` or `components/`), the skill file will be written to the wrong location and your AI tool will not find it.
+</Warning>
+
+## Automatic directory creation
+
+The extension uses `writeFileToProject()` to navigate the directory tree. Each path segment is created with `{ create: true }` if it does not already exist, so you do not need to pre-create `.claude/skills/design-system/` or its equivalents before running Quick Install.
+
+```javascript
+async function writeFileToProject(rootHandle, relativePath, content) {
+  const parts = relativePath.split("/").filter(Boolean);
+  const fileName = parts.pop();
+
+  let currentDir = rootHandle;
+  for (const segment of parts) {
+    currentDir = await currentDir.getDirectoryHandle(segment, { create: true });
+  }
+
+  const fileHandle = await currentDir.getFileHandle(fileName, { create: true });
+  const writable = await fileHandle.createWritable();
+  await writable.write(content);
+  await writable.close();
+}
+```
+
+## Fallback behavior
+
+If the browser does not support the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) (for example, in some non-Chromium browsers), or if you cancel the directory picker, the extension falls back automatically via `fallbackQuickInstall()`:
+
+1. **Clipboard copy** — attempts to copy the SKILL.md content to your clipboard
+2. **File download** — attempts to trigger a browser download of `SKILL.md`
+
+If either step succeeds, a message tells you what happened and where to manually place the file, for example: `Copied content. Downloaded SKILL.md. Move it to <project>/.claude/skills/design-system/SKILL.md for Claude Code.`
+
+If both steps fail, an error message is shown.
+
+<Note>
+Cancelling the directory picker is treated as a cancellation, not an error. The message shown is "Quick install cancelled." and no fallback is triggered.
+</Note>
+
+## Verifying the installation
+
+<Tip>
+After Quick Install completes, open your project in a terminal and run `ls .claude/skills/design-system/` (or the equivalent path for your tool) to confirm the file exists. Open the file to verify the frontmatter `name` field matches your extracted system and the managed block markers are present.
+</Tip>
+
+Once the file is in place, your AI tool will pick it up the next time it loads skills from its directory. In Claude Code, skills in `.claude/skills/` are available as context for coding sessions. In Codex, skills in `.agents/skills/` are loaded automatically. In Cursor, skills in `.cursor/skills/` are available as rules.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="SKILL.md format" href="/outputs/skill-md">
+    Understand the frontmatter fields, managed markers, and 11 content sections in the installed file.
+  </Card>
+  <Card title="DESIGN.md format" href="/outputs/design-md">
+    Plain markdown output for use outside AI tool skills directories.
+  </Card>
+</CardGroup>

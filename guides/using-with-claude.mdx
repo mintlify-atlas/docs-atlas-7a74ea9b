@@ -1,0 +1,83 @@
+---
+title: "Use SKILL.md with Claude Code for consistent UI output"
+description: "Install a SKILL.md design-system skill into your Claude Code project, either via Quick Install or manually, and reference it in prompts."
+---
+
+After you generate a SKILL.md file with the DESIGN.md Style Extractor extension, you can place it in your project's `.claude/skills/` directory so that Claude Code discovers and applies it automatically. The skill encodes extracted typography, color, spacing, and component rules from a live site, giving Claude Code a concrete design foundation to work from when generating or reviewing UI code.
+
+## How Claude Code discovers skills
+
+Claude Code reads skill files from the `.claude/skills/` directory at your project root. Each skill file carries a `name` field in its YAML frontmatter — for example, `name: design-system-your-brand` — and that name is what you reference in prompts. The extension generates the slug from the site's brand name or page title, so the exact name is visible at the top of the generated SKILL.md file.
+
+## Quick install
+
+Quick Install uses the browser's File System Access API to write the SKILL.md file directly into your project folder without requiring a manual download or copy step.
+
+<Steps>
+  <Step title="Navigate to the target site">
+    Open the website whose design system you want to capture. For best results, use the production site rather than a local dev environment, since computed styles from a dev server may differ from the deployed product.
+  </Step>
+  <Step title="Open the extension and select SKILL.md mode">
+    Click the extension icon in Chrome. In the mode switcher at the top of the popup, select **SKILL.md**. The extension will extract styles from the active tab and generate the skill file content.
+  </Step>
+  <Step title="Click the Claude Code button in Quick Install">
+    In the **Quick install** row at the bottom of the popup, click the **Claude Code** button. The extension calls `installQuick("claude")` internally, which resolves the target directory as `.claude/skills/design-system`.
+  </Step>
+  <Step title="Select your project root folder">
+    A directory picker dialog will open. Navigate to your project root — the folder that contains your source code and where `.claude/` will live — and confirm the selection. The extension uses `window.showDirectoryPicker` with `readwrite` access to traverse or create subdirectories.
+  </Step>
+  <Step title="Confirm installation">
+    The extension calls `writeFileToProject`, which walks the path segments `.claude` → `skills` → `design-system`, creating directories as needed, then writes `SKILL.md`. A confirmation message appears in the popup: **"Installed for Claude Code at .claude/skills/design-system/"**.
+  </Step>
+</Steps>
+
+<Tip>
+  Generate from the actual production site rather than a staging or development environment. Dev servers often use hot-reload styles or unoptimized font stacks, which can reduce extraction confidence and produce weaker token coverage.
+</Tip>
+
+## Manual installation
+
+If the directory picker is unavailable or you prefer to manage files yourself, you can download or copy the generated content and place it manually.
+
+<Steps>
+  <Step title="Generate and download SKILL.md">
+    With SKILL.md mode selected in the extension, click the download button (the arrow icon) to save `SKILL.md` to your Downloads folder. Alternatively, click the copy button to copy the content to your clipboard.
+  </Step>
+  <Step title="Create the skills directory">
+    In your project root, create the directory `.claude/skills/design-system/`. On macOS or Linux:
+
+    ```bash
+    mkdir -p .claude/skills/design-system
+    ```
+  </Step>
+  <Step title="Place SKILL.md in the directory">
+    Move or save the downloaded file into `.claude/skills/design-system/SKILL.md`. The final path relative to your project root should be:
+
+    ```text
+    .claude/skills/design-system/SKILL.md
+    ```
+  </Step>
+</Steps>
+
+## Referencing the skill in prompts
+
+Once the file is in place, reference the skill by the `name` value from its frontmatter. For example, if the generated frontmatter contains `name: design-system-acme`, use:
+
+```text
+Use the design-system-acme skill to style this component.
+```
+
+Claude Code will load the skill and apply its token definitions, accessibility requirements, component state rules, and writing tone guidelines when generating output.
+
+## Using DESIGN.md as conversation context
+
+If you prefer not to install a persistent skill file, you can use DESIGN.md mode instead. Switch to **DESIGN.md** in the mode switcher, copy the generated content, and paste it directly into your Claude conversation as context before describing your UI task. This approach works well for one-off sessions or when you want to use design context without modifying your project's file structure.
+
+<CardGroup cols={2}>
+  <Card title="SKILL.md format" href="/outputs/skill-md">
+    Learn about the frontmatter fields, managed markers, and section structure in a generated SKILL.md file.
+  </Card>
+  <Card title="Quick Install details" href="/outputs/quick-install">
+    Understand how Quick Install writes files, handles fallbacks, and what happens when the directory picker is unavailable.
+  </Card>
+</CardGroup>
